@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Blog Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
+    <style>
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+            to { 
+                transform: rotate(360deg);
+            }
+        }
+         
+        
+         @-webkit-keyframes rotate {
+            from {
+                -webkit-transform: rotate(0deg);
+            }
+            to { 
+                -webkit-transform: rotate(360deg);
+            }
+        }
+        
+        .load {
+            width: 100px;
+            height: 100px;
+            margin: 110px auto 0;
+            border:solid 10px #8822aa;
+            border-radius: 50%;
+            border-right-color: transparent;
+            border-bottom-color: transparent;
+             -webkit-transition: all 0.5s ease-in;
+            -webkit-animation-name:             rotate; 
+            -webkit-animation-duration:         1.0s; 
+            -webkit-animation-iteration-count:  infinite;
+            -webkit-animation-timing-function: linear;
+                
+                 transition: all 0.5s ease-in;
+            animation-name:             rotate; 
+            animation-duration:         1.0s; 
+            animation-iteration-count:  infinite;
+            animation-timing-function: linear; 
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen bg-gray-100 font-sans antialiased">
+    <!-- Navbar -->
+    <nav class="bg-gradient-to-r from-indigo-600 to-blue-600 p-4 text-white">
+        <div class="container mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white text-indigo-600 font-bold rounded-full w-10 h-10 flex items-center justify-center">AI</div>
+                <a href="/" class="text-2xl font-bold">AI Blog Generator</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                {% if user.is_authenticated %}
+                    <span class="hidden sm:inline">Welcome, <strong>{{ user.username }}</strong></span>
+                    <a href="/blog-list" class="text-white hover:underline">Saved Blogs</a>
+                    <a href="/logout" class="bg-white text-indigo-600 px-3 py-1 rounded hover:opacity-90">Logout</a>
+                {% else %}
+                    <a href="/login" class="text-white hover:underline">Login</a>
+                    <a href="/signup" class="bg-white text-indigo-600 px-3 py-1 rounded hover:opacity-90">Signup</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+
+    <!-- Main -->
+    <div class="flex-grow container mx-auto mt-10 px-4 sm:px-0">
+        <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-lg transition-transform transform hover:scale-102">
+
+            <!-- Introduction section -->
+            <div class="text-center">
+                <h2 class="text-3xl font-semibold mb-3">Turn YouTube videos into  blog posts</h2>
+                <p class="text-gray-600 mb-4">Paste a YouTube link — we’ll extract the audio, transcribe it, and produce a clean, readable article </p>
+            </div>
+
+            <br>
+
+            <!-- Youtube section -->
+            <div>
+                <h2 class="text-xl mb-4 font-semibold">Enter Youtube Video Link</h2>
+                <div class="flex flex-col sm:flex-row sm:space-x-4">
+                    <input id="youtubeLink" type="url" placeholder="Paste Youtube Link..." class="flex-grow p-3 border border-gray-300 rounded-md sm:rounded-r-none focus:outline-none">
+                    <button id="generateBlogButton" class="mt-3 sm:mt-0 sm:ml-0 sm:px-6 bg-indigo-600 text-white px-4 py-3 rounded-md hover:bg-indigo-700 transition-colors">Generate</button>
+                </div>
+            </div>
+
+
+            <!-- section for loading circle -->
+            <div style="display: none;" id="loading-circle" class="load"></div>
+
+
+            <!-- Generated Blog Display Section -->
+            <section class="mt-10">
+                <h2 class="text-xl mb-4 font-semibold">Generated Blog Article</h2>
+                <div id="blogContent" class="mt-2 text-gray-700 space-y-4 prose max-w-none" style="white-space: pre-line;">
+                </div>
+            </section>
+        </div>
+    </div>
+
+
+    
+
+    <script>
+        document.getElementById('generateBlogButton').addEventListener('click', async () => {
+            
+
+            const youtubeLink = document.getElementById('youtubeLink').value;
+            const blogContent = document.getElementById('blogContent');
+            
+            if(youtubeLink) {
+                document.getElementById('loading-circle').style.display = 'block';
+                
+                blogContent.innerHTML = ''; // Clear previous content
+
+                const endpointUrl = '/generate-blog';
+                
+                try {
+                    const response = await fetch(endpointUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ link: youtubeLink })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        // Show helpful error information returned by the server
+                        const stage = data.stage || 'unknown';
+                        const message = data.error || JSON.stringify(data);
+                        blogContent.innerHTML = `<div class="text-red-600">Error (${stage}): ${message}</div>`;
+                    } else {
+                        blogContent.innerHTML = data.content;
+                    }
+
+                } catch (error) {
+                    console.error("Error occurred:", error);
+                    blogContent.innerHTML = `<div class="text-red-600">Unexpected error: ${error}</div>`;
+                } finally {
+                    document.getElementById('loading-circle').style.display = 'none';
+                }
+            } else {
+                alert("Please enter a YouTube link.");
+            }
+        });
+    </script>
+</body>
+</html>
