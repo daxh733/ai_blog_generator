@@ -7,8 +7,11 @@ from django.http import JsonResponse
 from django.conf import settings
 import json
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import assemblyai as aai
 import traceback
+import logging
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_huggingface import HuggingFaceEndpoint
@@ -125,17 +128,50 @@ def download_audio(link):
 def get_transcription(link):
     audio_file = download_audio(link)
     if not audio_file:
+        logging.error("download_audio returned no file for link: %s", link)
         return None
 
-    # NOTE: move this key into settings or environment variables in production
+    audio_file = os.path.abspath(audio_file)
+    if not os.path.exists(audio_file):
+        logging.error("Downloaded audio file not found: %s", audio_file)
+        return None
+
     try:
-        aai.settings.api_key = "your_api_key"
+        size = os.path.getsize(audio_file)
+    except Exception:
+        size = None
+    logging.info("Transcribing file: %s (size=%s bytes)", audio_file, size)
+
+    # Load AssemblyAI API key from environment (do NOT hardcode keys).
+    assembly_key = os.getenv('ASSEMBLY_KEY') or os.getenv('ASSEMBLYAI_API_KEY')
+    if not assembly_key:
+        logging.error('No AssemblyAI API key found in environment (ASSEMBLY_KEY or ASSEMBLYAI_API_KEY)')
+        return None
+    aai.settings.api_key = assembly_key
+
+    # If a Hugging Face hub token is present in env, ensure the client libraries can see it
+    hf_token = os.getenv('HUGGINGFACEHUB_API_TOKEN') or os.getenv('HUGGINGFACE_TOKEN')
+    if hf_token:
+        os.environ['HUGGINGFACEHUB_API_TOKEN'] = hf_token
+
+    try:
         transcriber = aai.Transcriber()
         transcript = transcriber.transcribe(audio_file)
-        return transcript.text
-    except Exception:
-        # Bubble up a None so the caller can return a 500 with a friendly message
+    except Exception as e:
+        logging.exception("AssemblyAI transcription failed for %s", audio_file)
         return None
+
+    # Extract text robustly
+    try:
+        text = transcript.text
+    except Exception:
+        try:
+            text = transcript.get('text')
+        except Exception:
+            text = str(transcript)
+
+    logging.info("Transcription finished: %d characters", len(text) if text else 0)
+    return text
 
 def generate_blog_from_transcription(transcription):
     # First attempt: use the configured HuggingFaceEndpoint chain (langchain).
