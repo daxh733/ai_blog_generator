@@ -5,6 +5,7 @@ python-dotenv
 langchain-core
 langchain-huggingface
 gunicorn
+whitenoise
 # Transformers used as a local fallback summarizer
 transformers
 # Note: ffmpeg is required by yt-dlp for audio extraction/convert. Install it on your system separately.
